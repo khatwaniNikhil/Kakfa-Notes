@@ -1,0 +1,46 @@
+Kakfa Notes
+
+1) How Kakfa differs from JMS features
+	a) The JMS specification allows each individual message to be acknowledged after consumption. 
+		Such delivery guarantees are often overkill for collecting something like log data. 
+		For instance, losing a few pageview events occasionally is certainly not the end of the world.
+		
+	b) JMS has no API to allow the producer to explicitly batch multiple messages. Kakfa is more Throughput focussed.
+	
+	c) JMS is weak in distributed support. There is no easy way to partition and store messages on multiple machines.
+	
+	d) Kakfa is stateless. kakfa consumer pull the messages at the maximum rate it can sustain and avoid being flooded by messages pushed faster 
+		than it can handle. The pull model also makes it easy to rewind a consumer.
+		
+	e) Unlike typical messaging systems, a message stored in Kafka doesn’t have an explicit message id. 
+	   Instead, each message is addressed by its logical offset in the log.	
+	   The messages in the partitions are each assigned a sequential id number called the offset 
+	   that uniquely identifies each message within the partition.	
+		
+2) Storage
+
+	a)  Each partition of a topic corresponds to a logical log. 
+		Physically, a log is implemented as a set of segment files of approximately the same size (e.g., 1GB).
+		
+	b)  Every time a producer publishes a message to a partition, the broker simply appends the message to the last segment file.
+		
+		
+	c) 	Flushing to disk is done batch wise for better performance. A message is only exposed to the consumers after it is flushed			
+	
+
+3) Efficiency
+
+	a) Each data in and out of kakfa/produce and consume request is batched.
+	
+	b) Kakfa broker do not cache messages in process instead relied on os page cache. 
+	   This avoids double buffering and Since Kafka doesn’t cache messages in process at all, it has very little overhead 
+	   in garbage collecting its memory, making efficient implementation in a VM-based language feasible
+	 
+	c) Kafka exploits the linux sendfile API to efficiently deliver bytes in a log segment file from a broker to a consumer.
+	   Otherwise, 
+	   	 A typical approach to sending bytes from a local file to a remote socket involves the following steps: 
+		(1) read data from the storage media to the page cache in an OS, 
+		(2) copy data in the page cache to an application buffer, 
+		(3) copy application buffer to another kernel buffer, 
+		(4) send the kernel buffer to the socket. This includes 4 data copying and 2 system calls  
+ 		sendfile api avoids step 2 and step 3
